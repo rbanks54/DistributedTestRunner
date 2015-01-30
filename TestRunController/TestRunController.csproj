@@ -74,7 +74,7 @@
     <Compile Include="CommandController.cs" />
     <Compile Include="Startup.cs" />
     <Compile Include="TestManagementController.cs" />
-    <Compile Include="TestRepository.cs" />
+    <Compile Include="TestRun.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -85,6 +85,9 @@
       <Project>{1c122f23-dd30-4206-b890-80f87f53b11d}</Project>
       <Name>TestsToBeDistributed</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Notes.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

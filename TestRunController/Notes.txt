@@ -1,0 +1,7 @@
+﻿TestRun Agent is on each test machine
+Makes calls to TestRun Controller for the next test to run
+TestRun Contoller sends each agent the test to run, and a test run Id.
+	Agents need to return the test result and the test run id (in an e-tag) so that we can link test runs with results
+	Aborted test runs will simply discard any existing test results
+To get the test run results, look up the trx file for the completed test run.
+
