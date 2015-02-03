@@ -23,10 +23,12 @@ namespace TestRunController
         {
             Id = Guid.NewGuid();
             testQueues = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
+            activeTests= new ConcurrentDictionary<string, string>();
+            testResults = new ConcurrentBag<TestResult>();
             RunStatus = RunStatus.Waiting;
         }
 
-        public Guid Id { get; set; }
+        public Guid Id { get; private set; }
         public RunStatus RunStatus { get; private set; }
 
         public void Start()
@@ -67,18 +69,10 @@ namespace TestRunController
             if (!testQueues.ContainsKey(queueName))
             {
                 testQueues.TryAdd(queueName, new ConcurrentQueue<string>());
-                Interlocked.Increment(ref remainingTests);
             }
             var queue = testQueues[queueName];
             queue.Enqueue(testName);
-        }
-
-        public string NextTest(string machineName)
-        {
-            ConcurrentQueue<string> queue;
-            if (!testQueues.TryGetValue(string.Empty, out queue)) return string.Empty;
-
-            return NextTestFromQueue(machineName, queue);
+            Interlocked.Increment(ref remainingTests);
         }
 
         private string NextTestFromQueue(string machineName, ConcurrentQueue<string> queue)
@@ -87,7 +81,7 @@ namespace TestRunController
 
             string testName;
             if (queue.TryDequeue(out testName))
-            {
+            {   
                 Interlocked.Decrement(ref remainingTests);
                 Interlocked.Increment(ref inProgressTests);
                 activeTests.TryAdd(machineName, testName);
@@ -98,6 +92,15 @@ namespace TestRunController
 
         public string NextTest(string attributeName, string machineName)
         {
+            //Return current test for the machine if one is in progress
+            string currentTest;
+            if (activeTests.TryGetValue(machineName, out currentTest))
+            {
+                if (!string.IsNullOrEmpty(currentTest))
+                    return currentTest;
+            }
+
+            //otherwise we grab a test from a queue
             ConcurrentQueue<string> queue;
             if (!testQueues.TryGetValue(attributeName, out queue)) return string.Empty;
 

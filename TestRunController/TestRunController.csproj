@@ -80,7 +80,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="CommandController.cs" />
     <Compile Include="Startup.cs" />
-    <Compile Include="TestManagementController.cs" />
+    <Compile Include="NextTestController.cs" />
     <Compile Include="TestRun.cs" />
   </ItemGroup>
   <ItemGroup>
