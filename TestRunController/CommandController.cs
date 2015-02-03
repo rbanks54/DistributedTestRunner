@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,6 +15,9 @@ namespace TestRunController
 {
     public class CommandController: ApiController
     {
+        //Commands to start/stop/restart the entire test controller
+        //Test runs are created with the testrun api
+
         //Yay for statics! We need to make sure this thing, and everything it contains, is thread safe
         internal static readonly ConcurrentBag<TestRun> TestRuns = new ConcurrentBag<TestRun>(); 
 
@@ -53,11 +57,27 @@ namespace TestRunController
         private HttpResponseMessage Stop()
         {
             foreach (
-                var run in TestRuns.Where(r => r.RunStatus == RunStatus.Waiting || r.RunStatus == RunStatus.Started))
+                var run in TestRuns.Where(r => r.RunStatus == RunStatus.Started))
             {
                 run.Stop();
             }
             return new HttpResponseMessage(HttpStatusCode.OK);
+        }
+
+        [Route("testRun")]
+        [HttpPost]
+        public HttpResponseMessage NewTestRun([FromBody] string testDll)
+        {
+            var tests = AssemblyScanner.ScanDll(testDll);
+            var testRun = new TestRun();
+            foreach (var test in tests)
+            {
+                testRun.AddTestToQueues(test);
+            }
+            TestRuns.Add(testRun);
+            var response = new HttpResponseMessage(HttpStatusCode.Created);
+            response.Headers.Location = new Uri(this.Request.RequestUri,"/testRun/" + testRun.Id );
+            return response;
         }
     }
 }

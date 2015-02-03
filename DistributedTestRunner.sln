@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestsToBeDistributed", "Tes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestRunController", "TestRunController\TestRunController.csproj", "{B2BDCF93-E0AC-4264-A0A6-8E1BBA3E5987}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestRunAgent", "TestRunAgent\TestRunAgent.csproj", "{68CDB3BF-1050-40FC-ADDC-127D9C7FFCB4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{B2BDCF93-E0AC-4264-A0A6-8E1BBA3E5987}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B2BDCF93-E0AC-4264-A0A6-8E1BBA3E5987}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B2BDCF93-E0AC-4264-A0A6-8E1BBA3E5987}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68CDB3BF-1050-40FC-ADDC-127D9C7FFCB4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68CDB3BF-1050-40FC-ADDC-127D9C7FFCB4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68CDB3BF-1050-40FC-ADDC-127D9C7FFCB4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68CDB3BF-1050-40FC-ADDC-127D9C7FFCB4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

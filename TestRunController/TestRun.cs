@@ -21,7 +21,7 @@ namespace TestRunController
 
         public TestRun()
         {
-            Id = new Guid();
+            Id = Guid.NewGuid();
             testQueues = new ConcurrentDictionary<string, ConcurrentQueue<string>>();
             RunStatus = RunStatus.Waiting;
         }
@@ -46,13 +46,14 @@ namespace TestRunController
 
         public void AddTestToQueues(TestMetaData testToAdd)
         {
-            if (testToAdd.TestAttributes == null || !testToAdd.TestAttributes.Any())
+            var attributes = testToAdd.TestAttributes();
+            if (attributes == null || !attributes.Any())
             {
                 AddTestToQueue(string.Empty,testToAdd.TestName);
             }
             else
             {
-                foreach (var attribute in testToAdd.TestAttributes)
+                foreach (var attribute in attributes)
                 {
                     AddTestToQueue(attribute,testToAdd.TestName);
                 }
@@ -106,8 +107,22 @@ namespace TestRunController
 
     public class TestMetaData
     {
+        private List<string> testAttributes = new List<string>();  
+        public TestMetaData()
+        {
+            testAttributes = new List<string>();
+        }
+
         public string TestName { get; set; }
-        public IEnumerable<string> TestAttributes { get; set; }
+        public IQueryable<string> TestAttributes()
+        {
+            return testAttributes.AsQueryable();
+        }
+
+        public void AddAttribute(string attributeName)
+        {
+            testAttributes.Add(attributeName);
+        }
     }
 
     public class TestResult

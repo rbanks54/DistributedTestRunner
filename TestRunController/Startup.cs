@@ -14,6 +14,8 @@ namespace TestRunController
         {
             // Configure Web API for self-host. 
             HttpConfiguration config = new HttpConfiguration();
+
+            config.MapHttpAttributeRoutes();
             config.Routes.MapHttpRoute(
                 name: "DefaultApi",
                 routeTemplate: "{controller}/{id}",
