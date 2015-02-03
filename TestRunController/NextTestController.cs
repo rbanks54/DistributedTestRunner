@@ -18,12 +18,12 @@ namespace TestRunController
         }
 
         [Route("nextTest/{categoryName}")]
-        public HttpResponseMessage Get(string category, string machineName)
+        public HttpResponseMessage Get(string categoryName, string machineName)
         {
             var currentTestRun = CommandController.TestRuns.FirstOrDefault(t => t.RunStatus == RunStatus.Started);
             if (currentTestRun == null)
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
-            var testName = currentTestRun.NextTest(category,machineName);
+            var testName = currentTestRun.NextTest(categoryName,machineName);
             if (string.IsNullOrEmpty(testName))
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             var response = Request.CreateResponse(HttpStatusCode.OK, testName);
