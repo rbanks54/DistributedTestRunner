@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Deployment.Internal;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -105,6 +106,26 @@ namespace TestRunController
             if (!testQueues.TryGetValue(attributeName, out queue)) return string.Empty;
 
             return NextTestFromQueue(machineName, queue);
+        }
+
+        public void AddTestResult(string testName, string machineName, XDocument trxDocument)
+        {
+            if (string.IsNullOrEmpty(machineName) || testResults.Any(t => t.TestName == testName))
+                throw new ApplicationException("Test result already uploaded or machine name not set");
+
+            var tr = new TestResult() {TestName = testName, TestResultXml = trxDocument};
+            testResults.Add(tr);
+
+            Interlocked.Decrement(ref inProgressTests);
+            Interlocked.Increment(ref completedTests);
+
+            string ignored;
+            activeTests.TryRemove(machineName, out ignored);
+
+            if (inProgressTests == 0 && remainingTests == 0)
+            {
+                RunStatus = RunStatus.Completed;
+            }
         }
     }
 

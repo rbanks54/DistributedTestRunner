@@ -12,7 +12,7 @@ namespace TestRunController
     {
         static void Main(string[] args)
         {
-            string baseAddress = "http://localhost:6028/";
+            string baseAddress = "http://+:6028/";
 
             // Start OWIN host 
             using (WebApp.Start<Startup>(url: baseAddress))

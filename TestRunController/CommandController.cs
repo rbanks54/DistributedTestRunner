@@ -19,8 +19,9 @@ namespace TestRunController
         //Test runs are created with the testrun api
 
         //Yay for statics! We need to make sure this thing, and everything it contains, is thread safe
-        internal static readonly ConcurrentBag<TestRun> TestRuns = new ConcurrentBag<TestRun>(); 
+        internal static readonly ConcurrentBag<TestRun> TestRuns = new ConcurrentBag<TestRun>();
 
+        //The intent here is to start/stop the entire controller (i.e. prevent new test runs, etc)
         public HttpResponseMessage Post([FromBody]string command)
         {
             switch (command)
@@ -66,8 +67,9 @@ namespace TestRunController
 
         [Route("testRun")]
         [HttpPost]
-        public HttpResponseMessage NewTestRun([FromBody] string testDll)
+        public HttpResponseMessage NewTestRun()
         {
+            var testDll = Request.Content.ReadAsStringAsync().Result;
             var tests = AssemblyScanner.ScanDll(testDll);
             var testRun = new TestRun();
             foreach (var test in tests)
@@ -79,5 +81,39 @@ namespace TestRunController
             response.Headers.Location = new Uri(this.Request.RequestUri,"/testRun/" + testRun.Id );
             return response;
         }
+
+        [Route("testRun/{id}")]
+        [HttpPost]
+        public HttpResponseMessage TestRunCommands(string id)
+        {
+            var command = Request.Content.ReadAsStringAsync().Result;
+            Guid testId;
+            if (!Guid.TryParse(id, out testId))
+            {
+                throw new HttpResponseException(HttpStatusCode.NotFound);
+            }
+            var testRun = TestRuns.FirstOrDefault(r => r.Id.Equals(testId));
+            if (testRun == null)
+                throw new HttpResponseException(HttpStatusCode.NotFound);
+
+            switch (command.ToLowerInvariant())
+            {
+                case "start":
+                    if (testRun.RunStatus == RunStatus.Waiting)
+                    {
+                        testRun.Start();
+                    }
+                    //if the testrun isn't waiting there no action to be taken (we don't restart test runs)
+                    return new HttpResponseMessage(HttpStatusCode.OK);
+                    break;
+                case "stop":
+                    testRun.Stop();
+                    return new HttpResponseMessage(HttpStatusCode.OK);
+                    break;
+                default:
+                    return new HttpResponseMessage(HttpStatusCode.BadRequest);
+            }
+        }
+
     }
 }
