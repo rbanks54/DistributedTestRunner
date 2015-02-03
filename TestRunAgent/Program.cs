@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,6 +16,8 @@ namespace TestRunAgent
 {
     class Program
     {
+        private const string MSTEST = @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\IDE\mstest.EXE";
+
         static void Main(string[] args)
         {
             var baseUri = new Uri("http://rb-w230st:6028/");
@@ -39,25 +44,39 @@ namespace TestRunAgent
                 result = client.GetAsync(requestUri).Result;
                 var testToExecute = result.Content.ReadAsStringAsync().Result;
                 dynamic resultInfo = JsonConvert.DeserializeObject(testToExecute);
-                var testName = resultInfo.testName;
+                var testName = resultInfo.testName.ToString();
                 var testResultUri = new Uri(resultInfo.resultUri.ToString());
+
+
+
+                var arguments = String.Format("/testContainer:TestsToBeDistributed.dll /test:{0} /resultsfile:testresult.trx /nologo", testName);
+                var mstest = new Process();
+                mstest.StartInfo = new ProcessStartInfo(MSTEST,arguments);
+                mstest.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                mstest.StartInfo.WorkingDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                mstest.StartInfo.UseShellExecute = false;
+                mstest.StartInfo.RedirectStandardError = true;
+                mstest.StartInfo.RedirectStandardOutput = true;
+
+                //ensure the result file is deleted before starting MSTest
+                var resultFilePath = Path.Combine(mstest.StartInfo.WorkingDirectory, "testresult.trx");
+                if (File.Exists(resultFilePath))
+                    File.Delete(resultFilePath);
+
+                mstest.Start();
+                var errors = mstest.StandardError.ReadToEnd();
+                var output = mstest.StandardOutput.ReadToEnd();
+                mstest.WaitForExit();
+                if (mstest.ExitCode != 0)
+                {
+                    Console.WriteLine("failed test");
+                }
 
                 //Post a test result
                 using (var multipartFormDataContent = new MultipartFormDataContent())
                 {
-                    var trx = new XDocument(
-                        new XComment("This is a comment"),
-                        new XElement("Root",
-                            new XElement("Child1", "data1"),
-                            new XElement("Child2", "data2"),
-                            new XElement("Child3", "data3"),
-                            new XElement("Child2", "data4"),
-                            new XElement("Info5", "info5"),
-                            new XElement("Info6", "info6"),
-                            new XElement("Info7", "info7"),
-                            new XElement("Info8", "info8")
-                        )
-                    );
+                    //We need to read the test result file and send it to the controller
+                    var trx = XDocument.Load(resultFilePath);
 
                     var encodedContent = Encoding.UTF8.GetBytes(trx.ToString());
 
