@@ -1,0 +1,68 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+</head>
+<body>
+    <div>
+        Test Controller is currently <span id="controllerStatus">Idle</span>
+    </div>
+
+    <div id="overallStats">
+        Statistics:<br/>
+        Test runs complete: <span id="completedTestRuns">0</span><br/>
+        Test runs waiting: <span id="queuedTestRuns">0</span><br/>
+
+        <button id="newTestRun">Add Test Run</button>
+    </div>
+
+    <div id="currentTestRun">
+        Current test run (id = <span id="testRunId"></span>)<br/>
+        Tests waiting to run: <span id="testsWaiting">0</span><br/>
+        Tests in progress:
+        <div style="margin-left:30px" id="activeTests">
+        </div>
+        Tests completed: <span id="testsCompleted">0</span><br/>
+        <button id="stopTestRun">Stop current test run</button>
+    </div>
+
+    <button id="refresh">Refresh</button>
+    <script src="scripts/jquery-2.1.3.min.js"></script>
+    <script>
+        function updateStatus() {
+            $.ajax('status').done(function(data) {
+                if (data.isActive) {
+                    $('#controllerStatus').text('Active');
+                    $('#currentTestRun').show();
+                } else {
+                    $('#controllerStatus').text('Idle');
+                    $('#currentTestRun').hide();
+                }
+                $('#completedTestRuns').text(data.completedTestRuns);
+                $('#testRunId').text(data.runId);
+                $('#testsWaiting').text(data.queuedTests);
+                $('#testsCompleted').text(data.completedTests);
+                $('#activeTests').empty();
+                data.inProgressTestNames.forEach(function(detail) {
+                    $('#activeTests').append('Machine: ' + detail.MachineName + ' -- ' + detail.TestName + '<br/>');
+                });
+            });
+        };
+
+        $(document).ready(updateStatus);
+
+        $('#refresh').click(updateStatus);
+
+        $('#stopTestRun').click(function() {
+            $.ajax('command', {
+                type: 'POST',
+                data: 'stop',
+                contentType: 'application/json'
+            });
+            updateStatus();
+        });
+    </script>
+</body>
+</html>

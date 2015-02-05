@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Deployment.Internal;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +32,26 @@ namespace TestRunController
 
         public Guid Id { get; private set; }
         public RunStatus RunStatus { get; private set; }
+
+        public long RemainingTests
+        {
+            get { return remainingTests; }
+        }
+
+        public long InProgressTests
+        {
+            get { return inProgressTests; }
+        }
+
+        public long CompletedTests
+        {
+            get { return completedTests; }
+        }
+
+        public IEnumerable<TestRunningOnMachine> ActiveTestNames
+        {
+            get { return activeTests.Select(t => new TestRunningOnMachine(){TestName = t.Value, MachineName = t.Key}).AsEnumerable(); }
+        }
 
         public void Start()
         {
@@ -122,7 +143,7 @@ namespace TestRunController
             string ignored;
             activeTests.TryRemove(machineName, out ignored);
 
-            if (inProgressTests == 0 && remainingTests == 0)
+            if (InProgressTests == 0 && RemainingTests == 0)
             {
                 RunStatus = RunStatus.Completed;
             }
@@ -153,6 +174,12 @@ namespace TestRunController
     {
         public string TestName { get; set; }
         public XDocument TestResultXml { get; set; }
+    }
+
+    public class TestRunningOnMachine
+    {
+        public string MachineName { get; set; }
+        public string TestName { get; set; }
     }
 
     public enum RunStatus

@@ -40,6 +40,36 @@ namespace TestRunController
             }
         }
 
+        [Route("status")]
+        [HttpGet]
+        public HttpResponseMessage Status()
+        {
+            HttpResponseMessage response;
+            var currentRun = TestRuns.FirstOrDefault(r => r.RunStatus == RunStatus.Started);
+            if (currentRun == null)
+            {
+                var result = new
+                {
+                    isActive = false,
+                };
+                response = Request.CreateResponse(result);
+            }
+            else
+            {
+                var result = new
+                {
+                    isActive = true,
+                    runId = currentRun.Id.ToString(),
+                    queuedTests = currentRun.RemainingTests,
+                    completedTests = currentRun.CompletedTests,
+                    inProgressTests = currentRun.InProgressTests,
+                    inProgressTestNames = currentRun.ActiveTestNames,
+                };
+                response = Request.CreateResponse(result);
+            }
+            return response;
+        }
+
         private HttpResponseMessage Start()
         {
             Stop();
