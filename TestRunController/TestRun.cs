@@ -64,6 +64,7 @@ namespace TestRunController
             if (Interlocked.Read(ref remainingTests) + Interlocked.Read(ref inProgressTests) > 0)
             {
                 RunStatus = RunStatus.Aborted;
+                CommandController.StartNextTestRun();
             }
             //Finished status is set when the final test returns a result, no need to set it here
         }
@@ -146,6 +147,7 @@ namespace TestRunController
             if (InProgressTests == 0 && RemainingTests == 0)
             {
                 RunStatus = RunStatus.Completed;
+                CommandController.StartNextTestRun();
             }
         }
     }

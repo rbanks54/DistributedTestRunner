@@ -21,19 +21,14 @@ namespace TestRunController
         //Yay for statics! We need to make sure this thing, and everything it contains, is thread safe
         internal static readonly ConcurrentBag<TestRun> TestRuns = new ConcurrentBag<TestRun>();
 
-        //The intent here is to start/stop the entire controller (i.e. prevent new test runs, etc)
+        //The intent here is to send commands to the test controller
+        //The only valuable one at the moment is the 'stop' command that just stops all active test runs.
         public HttpResponseMessage Post([FromBody]string command)
         {
             switch (command)
             {
-                case "start":
-                    return Start();
-                    break;
                 case "stop":
                     return Stop();
-                    break;
-                case "restart":
-                    return Start(); //restart and start do the same thing internally.
                     break;
                 default:
                     return new HttpResponseMessage(HttpStatusCode.BadRequest);
@@ -70,21 +65,6 @@ namespace TestRunController
             return response;
         }
 
-        private HttpResponseMessage Start()
-        {
-            Stop();
-            try
-            {
-                TestRuns.First(r => r.RunStatus == RunStatus.Waiting).Start();
-            }
-            catch (InvalidOperationException)
-            {
-                //no test runs waiting to start? No problem. We'll just move on.
-                //any other exceptions thrown by .Start() can bubble up the stack.
-            }
-            return new HttpResponseMessage(HttpStatusCode.OK);
-        }
-
         private HttpResponseMessage Stop()
         {
             foreach (
@@ -107,9 +87,20 @@ namespace TestRunController
                 testRun.AddTestToQueues(test);
             }
             TestRuns.Add(testRun);
+            StartNextTestRun();
             var response = new HttpResponseMessage(HttpStatusCode.Created);
             response.Headers.Location = new Uri(this.Request.RequestUri,"/testRun/" + testRun.Id );
             return response;
+        }
+
+        internal static void StartNextTestRun()
+        {
+            if (TestRuns.All(t => t.RunStatus != RunStatus.Started))
+            {
+                var testRun = TestRuns.FirstOrDefault(t => t.RunStatus == RunStatus.Waiting);
+                if (testRun != null)
+                    testRun.Start();
+            }
         }
 
         [Route("testRun/{id}")]
@@ -128,14 +119,6 @@ namespace TestRunController
 
             switch (command.ToLowerInvariant())
             {
-                case "start":
-                    if (testRun.RunStatus == RunStatus.Waiting)
-                    {
-                        testRun.Start();
-                    }
-                    //if the testrun isn't waiting there no action to be taken (we don't restart test runs)
-                    return new HttpResponseMessage(HttpStatusCode.OK);
-                    break;
                 case "stop":
                     testRun.Stop();
                     return new HttpResponseMessage(HttpStatusCode.OK);

@@ -63,6 +63,17 @@
             });
             updateStatus();
         });
+
+        $('#newTestRun').click(function() {
+            $.ajax('TestRun', {
+                type: 'POST',
+                contentType: 'text/plain',
+                data: 'TestsToBeDistributed.dll'
+            }).done(function(data, status, xhr) {
+                var location = xhr.getResponseHeader('location');
+                alert('new test started. url: ' + location);
+            });
+        });
     </script>
 </body>
 </html>
