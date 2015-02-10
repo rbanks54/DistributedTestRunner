@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -22,7 +23,8 @@ namespace TestRunAgent
 
         static void Main(string[] args)
         {
-            var baseUri = new Uri("http://rb-w230st:6028/");
+            var baseUri = GetBaseUriFromConfiguration();
+            var testCategory = GetTestCategoryFromConfiguration();
 
             //Fugly loop code. Needs refactoring, but you should get the idea
             Console.WriteLine("hit enter after each result to load and run the next test");
@@ -31,8 +33,16 @@ namespace TestRunAgent
                 //ask for a new test run
                 using (var client = new HttpClient())
                 {
+                    Uri requestUri;
                     //Get a test to execute (generate machine name based on current second)
-                    var requestUri = new Uri(baseUri, "NextTest?machineName=" + DateTime.Now.Second);
+                    if (string.IsNullOrEmpty(testCategory))
+                    {
+                        requestUri = new Uri(baseUri, "NextTest?machineName=" + DateTime.Now.Second);
+                    }
+                    else
+                    {
+                        requestUri = new Uri(baseUri,string.Format("NextTest/{0}?machineName={1}",testCategory,DateTime.Now.Second));
+                    }
                     var result = client.GetAsync(requestUri).Result;
                     if (result.StatusCode == HttpStatusCode.NoContent)
                     {
@@ -91,6 +101,30 @@ namespace TestRunAgent
             }
             Console.WriteLine("hit anything to exit");
             Console.ReadKey();
+        }
+
+        private static Uri GetBaseUriFromConfiguration()
+        {
+            var baseAddress = ConfigurationManager.AppSettings.Get("controllerBaseAddress");
+            if (string.IsNullOrEmpty(baseAddress))
+            {
+                baseAddress = "http://localhost:6028/";
+            }
+            if (!baseAddress.EndsWith("/"))
+            {
+                baseAddress = string.Concat(baseAddress, "/");
+            }
+            var baseUri = new Uri(baseAddress);
+            return baseUri;
+        }
+        private static string GetTestCategoryFromConfiguration()
+        {
+            var category = ConfigurationManager.AppSettings.Get("testCategory");
+            if (string.IsNullOrEmpty(category))
+            {
+                category = string.Empty;
+            }
+            return category;
         }
     }
 }

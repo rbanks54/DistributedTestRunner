@@ -89,6 +89,7 @@
     <Compile Include="Startup.cs" />
     <Compile Include="TestRunController.cs" />
     <Compile Include="TestRun.cs" />
+    <Compile Include="TrxMerge.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
