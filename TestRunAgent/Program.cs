@@ -7,12 +7,14 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Mime;
 using System.Reflection;
 using System.Security.Policy;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using CommandLine.Text;
 using Newtonsoft.Json;
 
 namespace TestRunAgent
@@ -23,8 +25,23 @@ namespace TestRunAgent
 
         static void Main(string[] args)
         {
+
+            var options = new CommandLineOptions();
+            var parseResult = CommandLine.Parser.Default.ParseArgumentsStrict(args,options);
+            if (!parseResult)
+            {
+                Console.WriteLine("Invalid options. Please try again");
+                Console.WriteLine(HelpText.AutoBuild(options));
+                return;
+            }
+            
             var baseUri = GetBaseUriFromConfiguration();
-            var testCategory = GetTestCategoryFromConfiguration();
+            if (options.ServerUri != null)
+            {
+                baseUri = new Uri(options.ServerUri);
+            }
+            var testCategory = options.TestCategory ?? GetValueFromConfiguration("testCategory");
+            var machineId = options.MachineId ?? GetValueFromConfiguration("machineId");
 
             XDocument trxResults = null;
 
@@ -39,11 +56,11 @@ namespace TestRunAgent
                     //Get a test to execute (generate machine name based on current second)
                     if (string.IsNullOrEmpty(testCategory))
                     {
-                        requestUri = new Uri(baseUri, "NextTest?machineName=" + DateTime.Now.Second);
+                        requestUri = new Uri(baseUri, "NextTest?machineName=" + machineId);
                     }
                     else
                     {
-                        requestUri = new Uri(baseUri,string.Format("NextTest/{0}?machineName={1}",testCategory,DateTime.Now.Second));
+                        requestUri = new Uri(baseUri,string.Format("NextTest/{0}?machineName={1}",testCategory,machineId));
                     }
                     var result = client.GetAsync(requestUri).Result;
                     if (result.StatusCode == HttpStatusCode.NoContent)
@@ -58,10 +75,11 @@ namespace TestRunAgent
                     var testName = resultInfo.testName.ToString();
                     var testResultUri = new Uri(resultInfo.resultUri.ToString());
 
+                    var testResultFileName = "testResult_" + machineId + ".trx";
                     var arguments =
                         String.Format(
-                            "/testContainer:TestsToBeDistributed.dll /test:{0} /resultsfile:testresult.trx /nologo",
-                            testName);
+                            "/testContainer:TestsToBeDistributed.dll /test:{0} /resultsfile:{1} /nologo",
+                            testName, testResultFileName);
                     var mstest = new Process();
                     mstest.StartInfo = new ProcessStartInfo(MSTEST, arguments);
                     mstest.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
@@ -71,7 +89,7 @@ namespace TestRunAgent
                     mstest.StartInfo.RedirectStandardOutput = true;
 
                     //ensure the result file is deleted before starting MSTest
-                    var resultFilePath = Path.Combine(mstest.StartInfo.WorkingDirectory, "testresult.trx");
+                    var resultFilePath = Path.Combine(mstest.StartInfo.WorkingDirectory, testResultFileName);
                     if (File.Exists(resultFilePath))
                         File.Delete(resultFilePath);
 
@@ -85,6 +103,12 @@ namespace TestRunAgent
                     var latestResults = XDocument.Load(resultFilePath);
                     trxResults = trxResults == null ? latestResults : TrxMerge.MergeResults(latestResults, trxResults);
                     Console.WriteLine(DateTime.Now.ToShortTimeString() + ": test completed");
+
+                    //Optional - delete the run deployment. Feel free to not do this.
+                    var runDeploymentRoot =
+                        latestResults.Descendants(XName.Get("Deployment","http://microsoft.com/schemas/VisualStudio/TeamTest/2010"))
+                            .First().Attribute("runDeploymentRoot").Value;
+                    Directory.Delete(runDeploymentRoot,true);
 
                     //Tell the controller that this test is completed
                     result = client.PutAsync(testResultUri, new StringContent(success.ToString())).Result;
@@ -113,8 +137,8 @@ namespace TestRunAgent
 
         private static Uri GetBaseUriFromConfiguration()
         {
-            var baseAddress = ConfigurationManager.AppSettings.Get("controllerBaseAddress");
-            if (string.IsNullOrEmpty(baseAddress))
+            var baseAddress = GetValueFromConfiguration("controllerBaseAddress");
+            if (baseAddress == string.Empty)
             {
                 baseAddress = "http://localhost:6028/";
             }
@@ -125,14 +149,11 @@ namespace TestRunAgent
             var baseUri = new Uri(baseAddress);
             return baseUri;
         }
-        private static string GetTestCategoryFromConfiguration()
+
+        private static string GetValueFromConfiguration(string keyName)
         {
-            var category = ConfigurationManager.AppSettings.Get("testCategory");
-            if (string.IsNullOrEmpty(category))
-            {
-                category = string.Empty;
-            }
-            return category;
+            var value = ConfigurationManager.AppSettings.Get(keyName) ?? string.Empty;
+            return value;
         }
     }
 }
