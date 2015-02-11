@@ -44,83 +44,42 @@ namespace TestRunAgent
             var machineId = options.MachineId ?? GetValueFromConfiguration("machineId");
 
             XDocument trxResults = null;
+            var testRunInProgress = false;
 
-            //Fugly loop code. Needs refactoring, but you should get the idea
             Console.WriteLine("hit enter after each result to load and run the next test");
             while (true)
             {
                 //ask for a new test run
                 using (var client = new HttpClient())
                 {
-                    Uri requestUri;
-                    //Get a test to execute (generate machine name based on current second)
-                    if (string.IsNullOrEmpty(testCategory))
-                    {
-                        requestUri = new Uri(baseUri, "NextTest?machineName=" + machineId);
-                    }
-                    else
-                    {
-                        requestUri = new Uri(baseUri,string.Format("NextTest/{0}?machineName={1}",testCategory,machineId));
-                    }
-                    var result = client.GetAsync(requestUri).Result;
+                    var result = RequestNextTest(testCategory, baseUri, machineId, client);
                     if (result.StatusCode == HttpStatusCode.NoContent)
                     {
+                        if (testRunInProgress)
+                        {
+                            trxResults.Save(string.Format("testResults_{0}.trx", DateTime.Now.ToString("yyyyMMdd")));
+                        }
+                        testRunInProgress = false;
                         Console.WriteLine(DateTime.Now.ToShortTimeString() + ": Waiting for test");
                         Thread.Sleep(1000);
                         continue;
                     }
+                    testRunInProgress = true;
                     var testToExecute = result.Content.ReadAsStringAsync().Result;
                     Console.WriteLine(DateTime.Now.ToShortTimeString() + ": " + testToExecute);
                     dynamic resultInfo = JsonConvert.DeserializeObject(testToExecute);
                     var testName = resultInfo.testName.ToString();
                     var testResultUri = new Uri(resultInfo.resultUri.ToString());
 
-                    var testResultFileName = "testResult_" + machineId + ".trx";
-                    var arguments =
-                        String.Format(
-                            "/testContainer:TestsToBeDistributed.dll /test:{0} /resultsfile:{1} /nologo",
-                            testName, testResultFileName);
-                    var mstest = new Process();
-                    mstest.StartInfo = new ProcessStartInfo(MSTEST, arguments);
-                    mstest.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                    mstest.StartInfo.WorkingDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                    mstest.StartInfo.UseShellExecute = false;
-                    mstest.StartInfo.RedirectStandardError = true;
-                    mstest.StartInfo.RedirectStandardOutput = true;
+                    string resultFilePath;
+                    var success = RunMsTest(machineId, testName, out resultFilePath);
 
-                    //ensure the result file is deleted before starting MSTest
-                    var resultFilePath = Path.Combine(mstest.StartInfo.WorkingDirectory, testResultFileName);
-                    if (File.Exists(resultFilePath))
-                        File.Delete(resultFilePath);
-
-                    mstest.Start();
-                    var errors = mstest.StandardError.ReadToEnd();
-                    var output = mstest.StandardOutput.ReadToEnd();
-                    mstest.WaitForExit();
-                    var success = (mstest.ExitCode != 0);
-
-                    //Read and merge the mstest results
-                    var latestResults = XDocument.Load(resultFilePath);
-                    trxResults = trxResults == null ? latestResults : TrxMerge.MergeResults(latestResults, trxResults);
-                    Console.WriteLine(DateTime.Now.ToShortTimeString() + ": test completed");
-
-                    //Optional - delete the run deployment. Feel free to not do this.
-                    var runDeploymentRoot =
-                        latestResults.Descendants(XName.Get("Deployment","http://microsoft.com/schemas/VisualStudio/TeamTest/2010"))
-                            .First().Attribute("runDeploymentRoot").Value;
-                    Directory.Delete(runDeploymentRoot,true);
+                    trxResults = AppendTestResultsAndCleanup(resultFilePath, trxResults);
 
                     //Tell the controller that this test is completed
                     result = client.PutAsync(testResultUri, new StringContent(success.ToString())).Result;
                 }
-                var key = Console.ReadKey(true);
-                if (key.Key != ConsoleKey.Enter)
-                    break;
             }
-            Console.WriteLine("hit anything to exit");
-
-            //Need to dump out the merged results to a file. Base it on the testRunId
-            trxResults.Save(string.Format("testResults_{0}.trx", DateTime.Now.ToString("yyyyMMdd")));
 
             //using (var multipartFormDataContent = new MultipartFormDataContent())
             //{
@@ -132,7 +91,64 @@ namespace TestRunAgent
             //    multipartFormDataContent.Add(new ByteArrayContent(encodedContent), "File");
             //    result = client.PostAsync(testResultUri, multipartFormDataContent).Result;
             //}
-            Console.ReadKey();
+        }
+
+        private static XDocument AppendTestResultsAndCleanup(string resultFilePath, XDocument trxResults)
+        {
+            var latestResults = XDocument.Load(resultFilePath);
+            trxResults = trxResults == null ? latestResults : TrxMerge.MergeResults(latestResults, trxResults);
+            Console.WriteLine(DateTime.Now.ToShortTimeString() + ": test completed");
+
+            //Optional - delete the run deployment. Feel free to not do this.
+            var runDeploymentRoot =
+                latestResults.Descendants(XName.Get("Deployment", "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"))
+                    .First().Attribute("runDeploymentRoot").Value;
+            Directory.Delete(runDeploymentRoot, true);
+            return trxResults;
+        }
+
+        private static bool RunMsTest(string machineId, dynamic testName, out string resultFilePath)
+        {
+            var testResultFileName = "testResult_" + machineId + ".trx";
+            var arguments =
+                String.Format(
+                    "/testContainer:TestsToBeDistributed.dll /test:{0} /resultsfile:{1} /nologo",
+                    testName, testResultFileName);
+            var mstest = new Process();
+            mstest.StartInfo = new ProcessStartInfo(MSTEST, arguments);
+            mstest.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+            mstest.StartInfo.WorkingDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            mstest.StartInfo.UseShellExecute = false;
+            mstest.StartInfo.RedirectStandardError = true;
+            mstest.StartInfo.RedirectStandardOutput = true;
+
+            //ensure the result file is deleted before starting MSTest
+            resultFilePath = Path.Combine(mstest.StartInfo.WorkingDirectory, testResultFileName);
+            if (File.Exists(resultFilePath))
+                File.Delete(resultFilePath);
+
+            mstest.Start();
+            var errors = mstest.StandardError.ReadToEnd();
+            var output = mstest.StandardOutput.ReadToEnd();
+            mstest.WaitForExit();
+            var success = (mstest.ExitCode != 0);
+            return success;
+        }
+
+        private static HttpResponseMessage RequestNextTest(string testCategory, Uri baseUri, string machineId, HttpClient client)
+        {
+            Uri requestUri;
+            //Get a test to execute (generate machine name based on current second)
+            if (string.IsNullOrEmpty(testCategory))
+            {
+                requestUri = new Uri(baseUri, "NextTest?machineName=" + machineId);
+            }
+            else
+            {
+                requestUri = new Uri(baseUri, string.Format("NextTest/{0}?machineName={1}", testCategory, machineId));
+            }
+            var result = client.GetAsync(requestUri).Result;
+            return result;
         }
 
         private static Uri GetBaseUriFromConfiguration()

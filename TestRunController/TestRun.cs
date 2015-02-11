@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Deployment.Internal;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -8,7 +9,10 @@ using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Timers;
+using System.Web.Hosting;
 using System.Xml.Linq;
+using Timer = System.Timers.Timer;
 
 namespace TestRunController
 {
@@ -28,10 +32,19 @@ namespace TestRunController
             activeTests= new ConcurrentDictionary<string, string>();
             testResults = new ConcurrentBag<TestResult>();
             RunStatus = RunStatus.Waiting;
+
+            int timeoutInSeconds;
+            int.TryParse(ConfigurationManager.AppSettings.Get("testRunTimeout"), out timeoutInSeconds);
+            TestRunIdleTimer = new Timer(timeoutInSeconds * 1000);
         }
 
         public Guid Id { get; private set; }
         public RunStatus RunStatus { get; private set; }
+        
+        /// <summary>
+        /// Length of time before we decide no more tests are being requested (in seconds)
+        /// </summary>
+        public int QueueTimeout { get; set; }
 
         public long RemainingTests
         {
@@ -53,9 +66,12 @@ namespace TestRunController
             get { return activeTests.Select(t => new TestRunningOnMachine(){TestName = t.Value, MachineName = t.Key}).AsEnumerable(); }
         }
 
+        public Timer TestRunIdleTimer { get; private set; }
+
         public void Start()
         {
             RunStatus = RunStatus.Started;
+            TestRunIdleTimer.Start();
         }
 
         public void Stop()
@@ -66,6 +82,7 @@ namespace TestRunController
                 RunStatus = RunStatus.Aborted;
                 CommandController.StartNextTestRun();
             }
+            TestRunIdleTimer.Stop();
             //Finished status is set when the final test returns a result, no need to set it here
         }
 
@@ -108,6 +125,7 @@ namespace TestRunController
                 Interlocked.Decrement(ref remainingTests);
                 Interlocked.Increment(ref inProgressTests);
                 activeTests.TryAdd(machineName, testName);
+                TestRunIdleTimer.Stop(); //a machine requested another test (and we have one to send it)
                 return testName;
             }
             return string.Empty;
@@ -120,7 +138,9 @@ namespace TestRunController
             if (activeTests.TryGetValue(machineName, out currentTest))
             {
                 if (!string.IsNullOrEmpty(currentTest))
+                {
                     return currentTest;
+                }
             }
 
             //otherwise we grab a test from a queue
@@ -148,6 +168,10 @@ namespace TestRunController
             {
                 RunStatus = RunStatus.Completed;
                 CommandController.StartNextTestRun();
+            }
+            else
+            {
+                TestRunIdleTimer.Start(); //Start the idle timer. It will be reset when a machine next requests a test
             }
         }
     }

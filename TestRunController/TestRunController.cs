@@ -29,10 +29,11 @@ namespace TestRunController
             var testName = currentTestRun.NextTest(categoryName, machineName);
             if (string.IsNullOrEmpty(testName))
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
+            var baseUri = new Uri(this.Request.RequestUri.Scheme + "://" + this.Request.RequestUri.Authority + "/");
             var x = new
             {
                 testName = testName,
-                resultUri = new Uri(this.Request.RequestUri, string.Format("testRun/{0}/testResult/{1}?machineName={2}", currentTestRun.Id, testName, machineName)).ToString()
+                resultUri = new Uri(baseUri, string.Format("testRun/{0}/testResult/{1}?machineName={2}", currentTestRun.Id, testName, machineName)).ToString()
             };
             var response = Request.CreateResponse(HttpStatusCode.OK, x);
             return response;

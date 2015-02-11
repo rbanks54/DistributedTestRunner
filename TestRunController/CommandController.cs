@@ -99,8 +99,19 @@ namespace TestRunController
             {
                 var testRun = TestRuns.FirstOrDefault(t => t.RunStatus == RunStatus.Waiting);
                 if (testRun != null)
+                {
                     testRun.Start();
+                    testRun.TestRunIdleTimer.Elapsed += TestRunIdleTimer_Elapsed;
+                }
             }
+        }
+
+        static void TestRunIdleTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            //Determine current test run and then stop it
+            var testRun = TestRuns.First(t => t.RunStatus == RunStatus.Started);
+            testRun.TestRunIdleTimer.Elapsed -= TestRunIdleTimer_Elapsed; //unhook the event listener
+            testRun.Stop();
         }
 
         [Route("testRun/{id}")]
