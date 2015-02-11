@@ -30,6 +30,11 @@ namespace TestRunController
                 case "stop":
                     return Stop();
                     break;
+                case "shutdown":
+                    //Cause the app to exit
+                    Program.shutDown.Set();
+                    return new HttpResponseMessage(HttpStatusCode.OK);
+                    break;
                 default:
                     return new HttpResponseMessage(HttpStatusCode.BadRequest);
             }
