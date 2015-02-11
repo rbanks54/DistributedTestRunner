@@ -26,6 +26,8 @@ namespace TestRunAgent
             var baseUri = GetBaseUriFromConfiguration();
             var testCategory = GetTestCategoryFromConfiguration();
 
+            XDocument trxResults = null;
+
             //Fugly loop code. Needs refactoring, but you should get the idea
             Console.WriteLine("hit enter after each result to load and run the next test");
             while (true)
@@ -77,29 +79,35 @@ namespace TestRunAgent
                     var errors = mstest.StandardError.ReadToEnd();
                     var output = mstest.StandardOutput.ReadToEnd();
                     mstest.WaitForExit();
-                    if (mstest.ExitCode != 0)
-                    {
-                        Console.WriteLine("failed test");
-                    }
+                    var success = (mstest.ExitCode != 0);
 
-                    //Post a test result
-                    using (var multipartFormDataContent = new MultipartFormDataContent())
-                    {
-                        //We need to read the test result file and send it to the controller
-                        var trx = XDocument.Load(resultFilePath);
-
-                        var encodedContent = Encoding.UTF8.GetBytes(trx.ToString());
-
-                        multipartFormDataContent.Add(new ByteArrayContent(encodedContent), "File");
-                        result = client.PostAsync(testResultUri, multipartFormDataContent).Result;
-                    }
+                    //Read and merge the mstest results
+                    var latestResults = XDocument.Load(resultFilePath);
+                    trxResults = trxResults == null ? latestResults : TrxMerge.MergeResults(latestResults, trxResults);
                     Console.WriteLine(DateTime.Now.ToShortTimeString() + ": test completed");
+
+                    //Tell the controller that this test is completed
+                    result = client.PutAsync(testResultUri, new StringContent(success.ToString())).Result;
                 }
                 var key = Console.ReadKey(true);
                 if (key.Key != ConsoleKey.Enter)
                     break;
             }
             Console.WriteLine("hit anything to exit");
+
+            //Need to dump out the merged results to a file. Base it on the testRunId
+            trxResults.Save(string.Format("testResults_{0}.trx", DateTime.Now.ToString("yyyyMMdd")));
+
+            //using (var multipartFormDataContent = new MultipartFormDataContent())
+            //{
+            //    //We need to read the test result file and send it to the controller
+            //    var trx = XDocument.Load(resultFilePath);
+
+            //    var encodedContent = Encoding.UTF8.GetBytes(trx.ToString());
+
+            //    multipartFormDataContent.Add(new ByteArrayContent(encodedContent), "File");
+            //    result = client.PostAsync(testResultUri, multipartFormDataContent).Result;
+            //}
             Console.ReadKey();
         }
 

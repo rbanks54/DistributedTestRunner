@@ -25,7 +25,6 @@ namespace TestRunController
             options.DefaultFilesOptions.DefaultFileNames = new[] { "default.html" };
             appBuilder.UseFileServer(options);
 
-
             // Configure Web API for self-host. 
             HttpConfiguration config = new HttpConfiguration();
 

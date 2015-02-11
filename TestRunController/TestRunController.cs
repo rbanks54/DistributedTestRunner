@@ -17,7 +17,7 @@ namespace TestRunController
         [Route("nextTest")]
         public HttpResponseMessage Get(string machineName)
         {
-            return Get("",machineName);
+            return Get("", machineName);
         }
 
         [Route("nextTest/{categoryName}")]
@@ -26,11 +26,12 @@ namespace TestRunController
             var currentTestRun = CommandController.TestRuns.FirstOrDefault(t => t.RunStatus == RunStatus.Started);
             if (currentTestRun == null)
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
-            var testName = currentTestRun.NextTest(categoryName,machineName);
+            var testName = currentTestRun.NextTest(categoryName, machineName);
             if (string.IsNullOrEmpty(testName))
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
-            var x = new {
-                testName = testName, 
+            var x = new
+            {
+                testName = testName,
                 resultUri = new Uri(this.Request.RequestUri, string.Format("testRun/{0}/testResult/{1}?machineName={2}", currentTestRun.Id, testName, machineName)).ToString()
             };
             var response = Request.CreateResponse(HttpStatusCode.OK, x);
@@ -38,15 +39,15 @@ namespace TestRunController
         }
 
         [Route("testRun/{id}/testResult/{testName}")]
-        [HttpPost]
+        [HttpPut]
         public async Task<HttpResponseMessage> Put(string id, string testName, string machineName)
         {
             Guid testRunGuid;
-            if (!Guid.TryParse(id, out testRunGuid) || 
-                string.IsNullOrEmpty(machineName) || 
+            if (!Guid.TryParse(id, out testRunGuid) ||
+                string.IsNullOrEmpty(machineName) ||
                 string.IsNullOrEmpty(testName))
-                    return new HttpResponseMessage(HttpStatusCode.BadRequest);
-            
+                return new HttpResponseMessage(HttpStatusCode.BadRequest);
+
             var testRun = CommandController.TestRuns.FirstOrDefault(tr => tr.Id.Equals(testRunGuid));
             if (testRun == null)
                 return new HttpResponseMessage(HttpStatusCode.BadRequest);
@@ -54,33 +55,20 @@ namespace TestRunController
             if (testRun.RunStatus != RunStatus.Started)
                 throw new HttpResponseException(HttpStatusCode.BadRequest);
 
-            if (Request.Content.IsMimeMultipartContent())
+            var successText = await Request.Content.ReadAsStringAsync();
+            bool success;
+            bool.TryParse(successText, out success);
+
+            try
             {
-                var streamProvider = new MultipartMemoryStreamProvider();
-
-                await Request.Content.ReadAsMultipartAsync(streamProvider);
-
-                if (streamProvider.Contents.Count > 1) //only upload one trx at a time
-                    throw new HttpResponseException(HttpStatusCode.BadRequest);
-
-                foreach (var file in streamProvider.Contents)
-                {
-                    var content = file.ReadAsStringAsync().Result;
-                    var trx = XDocument.Parse(content);
-                    try
-                    {
-                        testRun.AddTestResult(testName, machineName, trx);
-                    }
-                    catch
-                    {
-                        throw new HttpResponseException(HttpStatusCode.InternalServerError);
-                    }
-                    }
-
-                return new HttpResponseMessage(HttpStatusCode.Created);
+                testRun.AddTestResult(testName, machineName, success);
             }
-            HttpResponseMessage response = Request.CreateResponse(HttpStatusCode.BadRequest, "Need to upload results as mimemultipartcontent");
-            throw new HttpResponseException(response);
+            catch
+            {
+                throw new HttpResponseException(HttpStatusCode.InternalServerError);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.Created);
         }
     }
 }

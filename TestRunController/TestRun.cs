@@ -130,12 +130,12 @@ namespace TestRunController
             return NextTestFromQueue(machineName, queue);
         }
 
-        public void AddTestResult(string testName, string machineName, XDocument trxDocument)
+        public void AddTestResult(string testName, string machineName, bool success) //, XDocument trxDocument)
         {
             if (string.IsNullOrEmpty(machineName) || testResults.Any(t => t.TestName == testName))
                 throw new ApplicationException("Test result already uploaded or machine name not set");
 
-            var tr = new TestResult() {TestName = testName, TestResultXml = trxDocument};
+            var tr = new TestResult() {TestName = testName, Success = success}; //  TestResultXml = trxDocument};
             testResults.Add(tr);
 
             Interlocked.Decrement(ref inProgressTests);
@@ -175,6 +175,7 @@ namespace TestRunController
     public class TestResult
     {
         public string TestName { get; set; }
+        public bool Success { get; set; }
         public XDocument TestResultXml { get; set; }
     }
 
