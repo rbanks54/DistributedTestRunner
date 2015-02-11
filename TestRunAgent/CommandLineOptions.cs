@@ -18,5 +18,8 @@ namespace TestRunAgent
 
         [Option('m', "machineId", Required = false, HelpText = "Enter the machine id for this test agent")]
         public string MachineId { get; set; }
+
+        [Option('r', Required = false, HelpText = "Keep the agent running after the test run completes")]
+        public bool StayAlive { get; set; }
     }
 }

@@ -25,7 +25,6 @@ namespace TestRunAgent
 
         static void Main(string[] args)
         {
-
             var options = new CommandLineOptions();
             var parseResult = CommandLine.Parser.Default.ParseArgumentsStrict(args,options);
             if (!parseResult)
@@ -53,11 +52,13 @@ namespace TestRunAgent
                 using (var client = new HttpClient())
                 {
                     var result = RequestNextTest(testCategory, baseUri, machineId, client);
-                    if (result.StatusCode == HttpStatusCode.NoContent)
+                    if (result == null || result.StatusCode == HttpStatusCode.NoContent)
                     {
                         if (testRunInProgress)
                         {
                             trxResults.Save(string.Format("testResults_{1}_{0}.trx", machineId, DateTime.Now.ToString("yyyyMMdd")));
+                            if (!options.StayAlive)
+                                break;
                         }
                         testRunInProgress = false;
                         Console.WriteLine(DateTime.Now.ToShortTimeString() + ": Waiting for test");
@@ -147,8 +148,17 @@ namespace TestRunAgent
             {
                 requestUri = new Uri(baseUri, string.Format("NextTest/{0}?machineName={1}", testCategory, machineId));
             }
-            var result = client.GetAsync(requestUri).Result;
-            return result;
+            try
+            {
+                var result = client.GetAsync(requestUri).Result;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                //The server address is wrong or the server isn't up. We'll continue waiting on the assumption that
+                //the server address is correct, and just not running at the moment
+                return null;
+            }
         }
 
         private static Uri GetBaseUriFromConfiguration()
