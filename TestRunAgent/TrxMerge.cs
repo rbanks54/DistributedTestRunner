@@ -12,37 +12,39 @@ namespace TestRunAgent
     {
         internal static XDocument MergeResults(XDocument sourceResult, XDocument targetResults)
         {
-            ////locate sections in first and append data from second...
-            var targetDefinitions = targetResults.XPathSelectElement("//TestDefinitions");
+            var testDefinitionXName = XName.Get("TestDefinitions", @"http://microsoft.com/schemas/VisualStudio/TeamTest/2010");
+            var resultsXName = XName.Get("Results", @"http://microsoft.com/schemas/VisualStudio/TeamTest/2010");
 
-            foreach (var sourceDefinition in sourceResult.XPathSelectElement("//TestDefinitions").Descendants())
+            ////locate sections in first and append data from second...
+            var targetDefinitions = targetResults.Descendants(testDefinitionXName).First();
+
+            foreach (var sourceDefinition in sourceResult.Descendants(testDefinitionXName).First().Elements())
             {
                 var sourceTestName = sourceDefinition.Attribute("name").Value;
 
-                if (targetDefinitions.Descendants().All(d => d.Attribute("name").Value != sourceTestName))
+                if (targetDefinitions.Elements().All(d => d.Attribute("name").Value != sourceTestName))
                 {
                     targetDefinitions.Add(sourceDefinition);
                 }
             }
 
 
-            var targetTestResults = targetResults.XPathSelectElement("//Results");
-            foreach (var sourceTestResult in sourceResult.XPathSelectElement("//Results").Descendants())
+            var targetTestResults = targetResults.Descendants(resultsXName).First();
+            foreach (var sourceTestResult in sourceResult.Descendants(resultsXName).First().Elements())
             {
                 var sourceTestName = sourceTestResult.Attribute("testName").Value;
                 var targetTestResult =
-                    targetTestResults.Descendants().FirstOrDefault(d => d.Attribute("testName").Value == sourceTestName);
+                    targetTestResults.Elements().FirstOrDefault(d => d.Attribute("testName").Value == sourceTestName);
 
                 if (targetTestResult == null)
                 {
-                    targetDefinitions.Add(sourceTestResult);
+                    targetTestResults.Add(sourceTestResult);
                 }
                 else
                 {
                     targetTestResult.ReplaceWith(sourceTestResult);
                 }
             }
-
             return targetResults;
         }
 
