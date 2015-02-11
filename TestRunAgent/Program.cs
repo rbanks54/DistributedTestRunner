@@ -57,7 +57,7 @@ namespace TestRunAgent
                     {
                         if (testRunInProgress)
                         {
-                            trxResults.Save(string.Format("testResults_{0}.trx", DateTime.Now.ToString("yyyyMMdd")));
+                            trxResults.Save(string.Format("testResults_{1}_{0}.trx", machineId, DateTime.Now.ToString("yyyyMMdd")));
                         }
                         testRunInProgress = false;
                         Console.WriteLine(DateTime.Now.ToShortTimeString() + ": Waiting for test");
