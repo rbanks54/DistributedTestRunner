@@ -9,4 +9,6 @@ The code uses test categories, and an agent can request tests for a specific cat
 Tests with categories that are unrequested won't be executed.
 Tests in multiple categories will get executed twice (at this point in time).
 
-Feel free to use and borrow as you will.
+For background information see the [original blog post](http://www.richard-banks.org/2015/02/side-project-distributed-test-runner.html) about it.
+
+Feel free to use and borrow as you wish!
