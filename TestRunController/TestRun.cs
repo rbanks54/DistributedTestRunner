@@ -71,7 +71,7 @@ namespace TestRunController
         public void Start()
         {
             RunStatus = RunStatus.Started;
-            TestRunIdleTimer.Start();
+            //We don't start the timer yet. We'll wait until at least one agent has asked for a test AND given us a result
         }
 
         public void Stop()
